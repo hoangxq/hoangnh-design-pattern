@@ -48,15 +48,12 @@ public class MyHttpHandler {
 
     private void handlePostRequest(Socket clientSocket, BufferedReader in) throws IOException {
         PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-        String timeZoneStr;
         int contentLength = 0;
 
         String headerLine;
         while ((headerLine = in.readLine()) != null && headerLine.length() > 0) {
             if (headerLine.startsWith("content-length:")) {
                 contentLength = Integer.parseInt(headerLine.substring(16).trim());
-            } else if (headerLine.startsWith("Time-Zone:")) {
-                timeZoneStr = headerLine.substring(10).trim();
             }
         }
 
@@ -66,26 +63,41 @@ public class MyHttpHandler {
         }
         String requestBody = requestBodyBuilder.toString();
         System.out.println("Request body: " + requestBody);
-        timeZoneStr = requestBody.substring(requestBody.indexOf("=") + 1);
+        String timeZoneStr = requestBody.substring(requestBody.indexOf("=") + 1);
 
-        Calendar calendar = Calendar.getInstance();
-        TimeZone timeZone = TimeZone.getTimeZone("GMT" + timeZoneStr);
-        calendar.setTimeZone(timeZone);
-        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-        dateFormat.setTimeZone(timeZone);
-        String currentTime = dateFormat.format(calendar.getTime());
+        if (timeZoneStr.matches("^[+-]\\d{1,2}$")) {
+            Calendar calendar = Calendar.getInstance();
+            TimeZone timeZone = TimeZone.getTimeZone("GMT" + timeZoneStr);
+            calendar.setTimeZone(timeZone);
+            SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+            dateFormat.setTimeZone(timeZone);
+            String currentTime = dateFormat.format(calendar.getTime());
 
-        String responseBody = "Current time: " + currentTime;
+            String responseBody = "Current time: " + currentTime;
 
-        out.println("HTTP/1.1 200 OK");
-        out.println("Content-Type: text/html");
-        out.println("Server: MyHttpServer");
-        out.println("Content-Length: " + responseBody.length());
+            out.println("HTTP/1.1 200 OK");
+            out.println("Content-Type: text/html");
+            out.println("Server: MyHttpServer");
+            out.println("Content-Length: " + responseBody.length());
 
-        out.println("");
-        out.println(responseBody);
+            out.println("");
+            out.println(responseBody);
 
-        clientSocket.close();
+            clientSocket.close();
+        } else {
+            String responseBody = "Invalid timezone format: " + timeZoneStr;
+
+            out.println("HTTP/1.1 400 Bad Request");
+            out.println("Content-Type: text/html");
+            out.println("Server: MyHttpServer");
+            out.println("Content-Length: " + responseBody.length());
+
+            out.println("");
+            out.println(responseBody);
+
+            clientSocket.close();
+        }
+
     }
 
 }
