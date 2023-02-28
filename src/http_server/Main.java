@@ -1,15 +1,17 @@
 package http_server;
 
-import com.sun.net.httpserver.HttpServer;
-
-import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
-        server.createContext("/test", new MyHttpHandler());
-        server.setExecutor(null);
-        server.start();
+        int port = 8000;
+        ServerSocket serverSocket = new ServerSocket(port);
+
+        while (true) {
+            Socket clientSocket = serverSocket.accept();
+            new MyHttpHandler().handle(clientSocket);
+        }
     }
 }
 

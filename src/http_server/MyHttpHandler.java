@@ -1,66 +1,91 @@
 package http_server;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
 
-public class MyHttpHandler implements HttpHandler {
-    @Override
-    public void handle(HttpExchange t) throws IOException {
-        if (t.getRequestMethod().equals("GET")) {
-            handleGetRequest(t);
-        } else if (t.getRequestMethod().equals("POST")) {
-            handlePostRequest(t);
+public class MyHttpHandler {
+
+    public void handle(Socket clientSocket) throws IOException {
+        BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        String headerLine = in.readLine();
+
+        String[] tokens = headerLine.split(" ");
+        String method = tokens[0];
+        String version = tokens[2];
+        System.out.println(method + " " + version);
+
+        if (method.equalsIgnoreCase("GET")) {
+            handleGetRequest(clientSocket);
+        } else if (method.equalsIgnoreCase("POST")) {
+            handlePostRequest(clientSocket, in);
         }
     }
 
-    private void handleGetRequest(HttpExchange t) throws IOException {
+    private void handleGetRequest(Socket clientSocket) throws IOException {
+        PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+        out.println("HTTP/1.1 200 OK");
+        out.println("Content-Type: text/plain");
+        out.println("Server: MyHttpServer");
+
         Date date = new Date();
         SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
         String currentTime = formatter.format(date);
+        String responseBody = "Current time: " + currentTime;
+        out.println("Content-Length: " + responseBody.length());
 
-        String response = "Current time: " + currentTime;
-        t.getResponseHeaders().add("Content-Type", "text/plain");
-        t.sendResponseHeaders(200, response.length());
-        OutputStream os = t.getResponseBody();
-        os.write(response.getBytes());
-        os.close();
+        out.println("");
+        out.println(responseBody);
+
+        clientSocket.close();
     }
 
-    private void handlePostRequest(HttpExchange t) throws IOException {
-        InputStream is = t.getRequestBody();
-        BufferedReader br = new BufferedReader(new InputStreamReader(is));
-        String requestBody = br.readLine();
+    private void handlePostRequest(Socket clientSocket, BufferedReader in) throws IOException {
+        PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+        String timeZoneStr;
+        int contentLength = 0;
 
-        String timeZoneStr = requestBody.substring(requestBody.indexOf("=") + 1);
-
-        if (timeZoneStr.matches("^[+-]\\d{1,2}$")) {
-            Calendar calendar = Calendar.getInstance();
-            TimeZone timeZone = TimeZone.getTimeZone("GMT" + timeZoneStr);
-            calendar.setTimeZone(timeZone);
-            SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-            dateFormat.setTimeZone(timeZone);
-            String currentTime = dateFormat.format(calendar.getTime());
-
-            String response = "Current time in GMT" + timeZoneStr + " is: " + currentTime;
-            t.getResponseHeaders().add("Content-Type", "text/plain");
-            t.sendResponseHeaders(200, response.length());
-            OutputStream os = t.getResponseBody();
-            os.write(response.getBytes());
-            os.close();
-        } else {
-            String errorResponse = "Invalid timezone format: " + timeZoneStr;
-            t.getResponseHeaders().add("Content-Type", "text/plain");
-            t.sendResponseHeaders(400, errorResponse.length());
-            OutputStream os = t.getResponseBody();
-            os.write(errorResponse.getBytes());
-            os.close();
+        String headerLine;
+        while ((headerLine = in.readLine()) != null && headerLine.length() > 0) {
+            if (headerLine.startsWith("content-length:")) {
+                contentLength = Integer.parseInt(headerLine.substring(16).trim());
+            } else if (headerLine.startsWith("Time-Zone:")) {
+                timeZoneStr = headerLine.substring(10).trim();
+            }
         }
+
+        StringBuilder requestBodyBuilder = new StringBuilder();
+        for (int i = 0; i < contentLength; i++) {
+            requestBodyBuilder.append((char) in.read());
+        }
+        String requestBody = requestBodyBuilder.toString();
+        System.out.println("Request body: " + requestBody);
+        timeZoneStr = requestBody.substring(requestBody.indexOf("=") + 1);
+
+        Calendar calendar = Calendar.getInstance();
+        TimeZone timeZone = TimeZone.getTimeZone("GMT" + timeZoneStr);
+        calendar.setTimeZone(timeZone);
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+        dateFormat.setTimeZone(timeZone);
+        String currentTime = dateFormat.format(calendar.getTime());
+
+        String responseBody = "Current time: " + currentTime;
+
+        out.println("HTTP/1.1 200 OK");
+        out.println("Content-Type: text/html");
+        out.println("Server: MyHttpServer");
+        out.println("Content-Length: " + responseBody.length());
+
+        out.println("");
+        out.println(responseBody);
+
+        clientSocket.close();
     }
 
 }
