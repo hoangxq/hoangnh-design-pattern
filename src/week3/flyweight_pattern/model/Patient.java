@@ -1,4 +1,4 @@
-package week3.facade_pattern.model;
+package week3.flyweight_pattern.model;
 
 public class Patient {
     private String name;
