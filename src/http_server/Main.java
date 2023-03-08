@@ -12,6 +12,7 @@ public class Main {
             Socket clientSocket = serverSocket.accept();
             new MyHttpHandler().handle(clientSocket);
         }
+        // concurrency model httpserver
     }
 }
 
