@@ -1,4 +1,4 @@
-package week3.model;
+package week3.facade_pattern.model;
 
 import java.util.HashMap;
 import java.util.Map;
